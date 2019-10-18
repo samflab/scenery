@@ -6,6 +6,9 @@ import com.jogamp.opengl.math.Quaternion
 import graphics.scenery.Camera
 import graphics.scenery.Mesh
 import graphics.scenery.Node
+import kotlin.math.abs
+import kotlin.math.sign
+import kotlin.math.sqrt
 
 
 /**
@@ -26,6 +29,8 @@ enum class TrackerRole {
     RightHand
 }
 
+private fun copysign(x: Float, y: Float): Float = abs(x) * sign(y)
+
 /**
  * Class for tracked devices and querying information about them.
  *
@@ -38,8 +43,7 @@ class TrackedDevice(val type: TrackedDeviceType, var name: String, var pose: GLM
     var metadata: Any? = null
     var orientation = Quaternion()
         get(): Quaternion {
-//            val pose = pose.floatArray
-//
+            val q = Quaternion()
 //            field.w = Math.sqrt(1.0 * Math.max(0.0f, 1.0f + pose[0] + pose[5] + pose[10])).toFloat() / 2.0f
 //            field.x = Math.sqrt(1.0 * Math.max(0.0f, 1.0f + pose[0] - pose[5] - pose[10])).toFloat() / 2.0f
 //            field.y = Math.sqrt(1.0 * Math.max(0.0f, 1.0f - pose[0] + pose[5] - pose[10])).toFloat() / 2.0f
@@ -48,7 +52,15 @@ class TrackedDevice(val type: TrackedDeviceType, var name: String, var pose: GLM
 //            field.x *= Math.signum(field.x * (pose[9] - pose[6]))
 //            field.y *= Math.signum(field.y * (pose[2] - pose[8]))
 //            field.z *= Math.signum(field.z * (pose[4] - pose[1]))
-            field = Quaternion().setFromMatrix(pose.floatArray, 0)
+            q.w = sqrt(maxOf(0.0f, 1 + pose[0, 0] + pose[1, 1]+ pose[2, 2])) / 2.0f;
+            q.x = sqrt(maxOf(0.0f, 1 + pose[0, 0] - pose[1, 1] - pose[2, 2])) / 2.0f;
+            q.y = sqrt(maxOf(0.0f, 1 - pose[0, 0] + pose[1, 1] - pose[2, 2])) / 2.0f;
+            q.z = sqrt(maxOf(0.0f, 1 - pose[0, 0] - pose[1, 1] + pose[2, 2])) / 2.0f;
+            q.x = copysign(q.x, pose[2, 1] - pose[1, 2]);
+            q.y = copysign(q.y, pose[0, 2] - pose[2, 0]);
+            q.z = copysign(q.z, pose[1, 0] - pose[0, 1]);
+            
+            field = q
 
             return field
         }

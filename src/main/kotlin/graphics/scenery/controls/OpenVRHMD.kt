@@ -33,6 +33,7 @@ import org.scijava.ui.behaviour.MouseAndKeyHandler
 import org.scijava.ui.behaviour.io.InputTriggerConfig
 import java.awt.Component
 import java.awt.event.KeyEvent
+import java.awt.event.MouseEvent
 import java.io.File
 import java.nio.FloatBuffer
 import java.nio.IntBuffer
@@ -433,6 +434,8 @@ open class OpenVRHMD(val seated: Boolean = false, val useCompositor: Boolean = t
             return
         }
 
+        VRCompositor_WaitGetPoses(hmdTrackedDevicePoses, gamePoses)
+
         for (device in (0 until k_unMaxTrackedDeviceCount)) {
             val isValid = hmdTrackedDevicePoses.get(device).bPoseIsValid()
 
@@ -509,6 +512,7 @@ open class OpenVRHMD(val seated: Boolean = false, val useCompositor: Boolean = t
 
                 d.pose = pose.toGLMatrix()
                 d.timestamp = System.nanoTime()
+                d.metadata = pose
 
                 if (type == TrackedDeviceType.HMD) {
                     d.pose.invert()
@@ -529,9 +533,10 @@ open class OpenVRHMD(val seated: Boolean = false, val useCompositor: Boolean = t
                 val button = event.data().controller().button()
 
                 OpenVRButton.values().find { it.internalId == button }?.let {
-                    logger.debug("Button pressed: $this on $role")
+                    logger.debug("Button pressed: $it on $role")
                     val keyEvent = it.toKeyEvent(role)
                     inputHandler.keyPressed(keyEvent.first)
+                    keysDown.add(it to role)
                 }
             }
 
@@ -539,9 +544,10 @@ open class OpenVRHMD(val seated: Boolean = false, val useCompositor: Boolean = t
                 val button = event.data().controller().button()
 
                 OpenVRButton.values().find { it.internalId == button }?.let {
-                    logger.debug("Button unpressed: $this on $role")
+                    logger.debug("Button unpressed: $it on $role")
                     val keyEvent = it.toKeyEvent(role)
                     inputHandler.keyReleased(keyEvent.second)
+                    keysDown.remove(it to role)
                 }
             }
 
@@ -555,8 +561,18 @@ open class OpenVRHMD(val seated: Boolean = false, val useCompositor: Boolean = t
         }
         event.free()
 
+        keysDown.forEach {
+            if(it in allowRepeats) {
+                val event = it.first.toKeyEvent(it.second)
+                inputHandler.keyPressed(event.first)
+            }
+        }
+
         readyForSubmission = true
     }
+
+    val allowRepeats = HashSet<Pair<OpenVRButton, TrackerRole>>(5, 0.8f)
+    val keysDown = HashSet<Pair<OpenVRButton, TrackerRole>>(5, 0.8f)
 
     enum class OpenVRButton(val internalId: Int) {
         Left(EVRButtonId_k_EButton_DPad_Left),
@@ -588,17 +604,17 @@ open class OpenVRHMD(val seated: Boolean = false, val useCompositor: Boolean = t
             this == OpenVRButton.Right && role == TrackerRole.LeftHand  -> AWTKey(KeyEvent.VK_L)
             this == OpenVRButton.Up  && role == TrackerRole.LeftHand  -> AWTKey(KeyEvent.VK_K)
             this == OpenVRButton.Down && role == TrackerRole.LeftHand  -> AWTKey(KeyEvent.VK_J)
-            this == OpenVRButton.Menu && role == TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_M, modifiers)
-            this == OpenVRButton.Trigger && role == TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_T, modifiers)
-            this == OpenVRButton.Side && role == TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_X, modifiers)
+            this == OpenVRButton.Menu && role == TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_M)
+            this == OpenVRButton.Trigger && role == TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_T)
+            this == OpenVRButton.Side && role == TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_X)
 
             this == OpenVRButton.Left && role != TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_A)
             this == OpenVRButton.Right && role != TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_D)
             this == OpenVRButton.Up  && role != TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_W)
             this == OpenVRButton.Down && role != TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_S)
-            this == OpenVRButton.Menu && role != TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_N, modifiers)
-            this == OpenVRButton.Trigger && role != TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_U, modifiers)
-            this == OpenVRButton.Side && role != TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_Y, modifiers)
+            this == OpenVRButton.Menu && role != TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_N)
+            this == OpenVRButton.Trigger && role != TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_U)
+            this == OpenVRButton.Side && role != TrackerRole.LeftHand -> AWTKey(KeyEvent.VK_Y)
 
             else -> {
                 logger.warn("Unknown key: $this for role $role")
@@ -628,8 +644,6 @@ open class OpenVRHMD(val seated: Boolean = false, val useCompositor: Boolean = t
      * @param[textureId] OpenGL Texture ID of the left eye texture
      */
     @Synchronized override fun submitToCompositor(textureId: Int) {
-        VRCompositor_WaitGetPoses(hmdTrackedDevicePoses, gamePoses)
-        update()
         if (disableSubmission || !readyForSubmission) {
             return
         }
@@ -668,8 +682,6 @@ open class OpenVRHMD(val seated: Boolean = false, val useCompositor: Boolean = t
     override fun submitToCompositorVulkan(width: Int, height: Int, format: Int,
                                           instance: VkInstance, device: VulkanDevice,
                                           queue: VkQueue, image: Long) {
-        VRCompositor_WaitGetPoses(hmdTrackedDevicePoses, gamePoses)
-        update()
         if (disableSubmission || !readyForSubmission) {
             return
         }

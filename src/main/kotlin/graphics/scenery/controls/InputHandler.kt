@@ -7,7 +7,11 @@ import graphics.scenery.backends.SceneryWindow
 import graphics.scenery.controls.behaviours.*
 import graphics.scenery.utils.LazyLogger
 import net.java.games.input.Component
+import org.reflections.Configuration
 import org.reflections.Reflections
+import org.reflections.ReflectionsException
+import org.reflections.scanners.MethodAnnotationsScanner
+import org.reflections.scanners.Scanner
 import org.scijava.ui.behaviour.Behaviour
 import org.scijava.ui.behaviour.BehaviourMap
 import org.scijava.ui.behaviour.InputTrigger
@@ -65,11 +69,21 @@ class InputHandler(scene: Scene, renderer: Renderer, override var hub: Hub?, for
                 }
 
                 else -> {
-                    val handlers = Reflections("graphics.scenery.controls").getTypesAnnotatedWith(CanHandleInputFor::class.java)
-                    logger.debug("Found potential input handlers: ${handlers.joinToString { "${it.simpleName} -> ${it.getAnnotation(CanHandleInputFor::class.java).windowTypes.joinToString()}" }}")
-                    val candidate = handlers.find { it.getAnnotation(CanHandleInputFor::class.java).windowTypes.contains(window::class) }
-                    handler = candidate?.getConstructor(Hub::class.java)?.newInstance(hub) as MouseAndKeyHandlerBase?
-                    handler?.attach(window, inputMap, behaviourMap)
+                    var handlers: Set<Class<*>>? = null
+
+                    try {
+                        handlers = Reflections("graphics.scenery.controls").getTypesAnnotatedWith(CanHandleInputFor::class.java)
+                    } catch(e: ReflectionsException) {
+                        logger.debug("ReflectionException occured, probably safe to ignore because reflections picked up resources: $e")
+                    }
+                    if(handlers == null) {
+                        handler = null
+                    } else {
+                        logger.debug("Found potential input handlers: ${handlers.joinToString { "${it.simpleName} -> ${it.getAnnotation(CanHandleInputFor::class.java).windowTypes.joinToString()}" }}")
+                        val candidate = handlers.find { it.getAnnotation(CanHandleInputFor::class.java).windowTypes.contains(window::class) }
+                        handler = candidate?.getConstructor(Hub::class.java)?.newInstance(hub) as MouseAndKeyHandlerBase?
+                        handler?.attach(window, inputMap, behaviourMap)
+                    }
                 }
             }
         }
