@@ -110,7 +110,7 @@ open class Volume : Mesh("Volume") {
     @ShaderProperty var boxMax_z = boxwidth
 
     /** Maximum steps to take along a single ray through the volume */
-    @ShaderProperty var stepSize = 0.01f
+    @ShaderProperty var maxSteps = 128
     /** Alpha blending factor */
     @ShaderProperty var alphaBlending = 1.0f
     /** Gamma exponent */

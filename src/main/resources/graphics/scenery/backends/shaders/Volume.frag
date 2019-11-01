@@ -67,7 +67,7 @@ layout(set = 5, binding = 0) uniform ShaderProperties {
     float boxMax_x;
     float boxMax_y;
     float boxMax_z;
-    float stepSize;
+    int maxSteps;
     float alphaBlending;
     float gamma;
     int dataRangeMin;
@@ -288,7 +288,11 @@ void main()
     const float tnear = max(inter.tnear, 0.0f);
     const float tfar = min(inter.tfar, length(direc0 - orig0));
 
-    const float tstep = stepSize;
+    float distToCenter = length(vec2(u,v));
+    float stepMultiplier = clamp(exp(-distToCenter*distToCenter/0.05), 0.1, 1.0);//0.8 * smoothstep(0.1, 0.9, distToCenter);
+//    float stepMultiplier = 1.0;
+    const int steps = max(int(floor(maxSteps * stepMultiplier)), 16);
+    const float tstep = 1.0/steps;
 
     // precompute vectors:
     const vec3 vecstep = 0.5 * tstep * direc.xyz;
@@ -330,41 +334,7 @@ void main()
     float shadowDist = 0.0f;
     float shadowDensity = 0.1f;
 
-    const int steps = min(int(ceil(abs(tfar - tnear)/tstep)), 1024);
 
-    // Local Maximum Intensity Projection
-    if(renderingMethod == 0) {
-         float opacity = 1.0f;
-         for(int i = 0; i <= steps; i++, pos += vecstep) {
-              float volumeSample = texture(VolumeTextures, pos.xyz).r * dataRangeMax;
-              newVal = clamp(ta * volumeSample + tb,0.f,1.f);
-              colVal = max(colVal, opacity*newVal);
-
-              opacity *= (1.0 - alphaBlending * sampleTF(clamp(newVal,0.f,1.f))/steps);
-
-              if (opacity <= 0.0f) {
-                break;
-              }
-         }
-
-         alphaVal = 1.0f - opacity;
-
-         // Mapping to transfer function range and gamma correction:
-         FragColor = vec4(pow(sampleLUT(colVal).rgb, vec3(gamma)) * alphaVal, alphaVal);
-    }
-    // Maximum Intensity Projection
-    else if(renderingMethod == 1) {
-         for(int i = 0; i <= steps; i++, pos += vecstep) {
-          float volumeSample = texture(VolumeTextures, pos.xyz).r * dataRangeMax;
-          float newVal = clamp(ta * volumeSample + tb,0.f,1.f);
-          colVal = max(colVal, newVal);
-        }
-
-
-        // Mapping to transfer function range and gamma correction:
-        alphaVal = sampleTF(clamp(colVal, 0.0, 1.0));
-        FragColor = vec4(pow(sampleLUT(colVal).rgb, vec3(gamma)) * alphaVal, alphaVal);
-    } else {
         vec3 color = vec3(0.0f);
         float alpha = 0.0f;
         int osteps = min(occlusionSteps, 16);
@@ -378,23 +348,6 @@ void main()
 
             float newAlpha = sampleTF(volumeSample);
 
-            if(newAlpha > 0.0f && osteps > 0) {
-                [[unroll]] for(int s = 0; s < osteps; s++) {
-                    vec3 lpos = pos + vec3(poisson16[s], (poisson16[s].x + poisson16[s].y)/2.0) * kernelSize;
-                    vec3 N = normalize(getGradient(VolumeTextures, lpos, 1.0));
-                    vec3 sampleDir = normalize(lpos - pos);
-
-                    float NdotS = max(dot(N, sampleDir), 0.0);
-                    float dist = distance(pos, lpos);
-
-                    float a = smoothstep(maxOcclusionDistance, maxOcclusionDistance*2.0, dist);
-
-                    shadowDist += a * NdotS/occlusionSteps;
-                }
-
-                shadowing = clamp(shadowDist, 0.0, 1.0);
-            }
-
             vec3 newColor = sampleLUT(volumeSample).rgb * (1.0 - shadowing);
 
             color = color + (1.0f - alpha) * newColor * newAlpha;
@@ -405,8 +358,8 @@ void main()
             }
         }
 
+
         // color is alpha pre-multiplied alpha, so we just pass it along here
         FragColor = vec4(color, alpha);
-    }
 }
 

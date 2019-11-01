@@ -14,7 +14,6 @@ import org.junit.Test
 import org.scijava.ui.behaviour.ClickBehaviour
 import java.io.File
 import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
@@ -198,7 +197,7 @@ class DemoReelExample: SceneryBase("Demo Reel") {
                                         trangemax = 1024.0f
                                         alphaBlending = 0.5f
                                         scale = GLVector(1.0f, 1.0f, 1.0f)
-                                        stepSize = 0.05f
+                                        maxSteps = 128
                                         voxelSizeX = 1.0f
                                         voxelSizeY = 5.0f
                                         voxelSizeZ = 1.0f
@@ -212,7 +211,7 @@ class DemoReelExample: SceneryBase("Demo Reel") {
                                         trangemin = 0.0f
                                         trangemax = 255.0f
                                         alphaBlending = 0.2f
-                                        stepSize = 0.05f
+                                        maxSteps = 128
                                         scale = GLVector(1.0f, 1.0f, 1.0f)
                                         voxelSizeX = 1.0f
                                         voxelSizeY = 1.0f

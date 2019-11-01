@@ -15,7 +15,6 @@ import org.zeromq.ZContext
 import org.zeromq.ZMQ
 import java.io.ByteArrayInputStream
 import java.io.StreamCorruptedException
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 
@@ -97,7 +96,7 @@ class NodeSubscriber(override var hub: Hub?, val address: String = "udp://localh
                                 node.boxMax_y = o.boxMax_y
                                 node.boxMax_z = o.boxMax_z
 
-                                node.stepSize = o.stepSize
+                                node.maxSteps = o.maxSteps
                                 node.alphaBlending = o.alphaBlending
                                 node.gamma = o.gamma
 
