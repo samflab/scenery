@@ -2153,7 +2153,10 @@ open class VulkanRenderer(hub: Hub,
                 .pEngineName(stack.UTF8("scenery"))
                 .apiVersion(VK_MAKE_VERSION(1, 0, 73))
 
-            val additionalExts: List<String> = hub?.getWorkingHMDDisplay()?.getVulkanInstanceExtensions() ?: listOf()
+            val additionalExts = ArrayList<String>()
+            additionalExts.addAll(hub?.getWorkingHMDDisplay()?.getVulkanInstanceExtensions() ?: listOf())
+            additionalExts.add("VK_EXT_swapchain_colorspace")
+            additionalExts.add("VK_KHR_get_surface_capabilities2")
             val utf8Exts = additionalExts.map { stack.UTF8(it) }
 
             logger.debug("HMD required instance exts: ${additionalExts.joinToString(", ")} ${additionalExts.size}")

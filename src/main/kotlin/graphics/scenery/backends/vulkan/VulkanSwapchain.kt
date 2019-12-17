@@ -373,12 +373,34 @@ open class VulkanSwapchain(open val device: VulkanDevice,
                 device.vulkanDevice)
 
             // Get list of supported formats
-            val formatCount = VU.getInts("Getting supported surface formats", 1,
-                { KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(device.physicalDevice, surface, this, null) })
+            val formatCount = VU.getInts("Getting supported surface formats", 1)
+                { KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(device.physicalDevice, surface, this, null) }
 
             val surfFormats = VkSurfaceFormatKHR.callocStack(formatCount.get(0), stack)
             VU.run("Query device physical surface formats",
                 { KHRSurface.vkGetPhysicalDeviceSurfaceFormatsKHR(device.physicalDevice, surface, formatCount, surfFormats) })
+
+            for(i in 0 until formatCount.get(0)) {
+                logger.info("Surface format $i: ${surfFormats.get(i).format()}, space=${surfFormats.get(i).colorSpace()}")
+            }
+
+            val surfaceInfo2 = VkPhysicalDeviceSurfaceInfo2KHR.callocStack(stack)
+                .sType(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR)
+                .surface(surface)
+
+            val extFormatCount = VU.getInts("Extended formats", 1)
+                { vkGetPhysicalDeviceSurfaceFormats2KHR(device.physicalDevice, surfaceInfo2, this, null) }
+
+            val extSurfaceFormats = VkSurfaceFormat2KHR.callocStack(extFormatCount.get(0), stack)
+            extSurfaceFormats.forEach { it.sType(VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR) }
+            VU.run("Query device extended surface formats",
+                { vkGetPhysicalDeviceSurfaceFormats2KHR(device.physicalDevice, surfaceInfo2, extFormatCount, extSurfaceFormats) })
+
+            logger.info("Extended formats: ${extFormatCount.get(0)}")
+
+            for(i in 0 until extFormatCount.get(0)) {
+                logger.info("Extended surface format $i: ${extSurfaceFormats.get(i).surfaceFormat().format()} space=${extSurfaceFormats.get(i).surfaceFormat().colorSpace()}")
+            }
 
             val colorFormat = if (formatCount.get(0) == 1 && surfFormats.get(0).format() == VK10.VK_FORMAT_UNDEFINED) {
                 if (useSRGB) {
